@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Pan Frío — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered-wide">
+    <div class="page-header" style="text-align:center">
+        <h1 class="page-title" style="justify-content:center">🧊 Bolsas de Pan Frío</h1>
+        <p class="page-subtitle">Arma bolsas de pan sobrante para remate</p>
+    </div>
+
+    <!-- Formulario nuevo lote -->
+    <div class="card animate-scale mb-24">
+        <div class="card-header">
+            <h2 class="card-header-title">➕ Armar nueva bolsa</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="pan-frio-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear">
+
+                <div class="form-group mb-16">
+                    <label class="form-label" for="id_precio_remate">Precio de toda la bolsa ($)</label>
+                    <input type="number" id="id_precio_remate" name="precio_remate"
+                           class="form-control form-control-lg" inputmode="decimal" step="0.01" min="0.01" placeholder="Ej: 50.00" required>
+                </div>
+
+                <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--color-border);">
+                <h3 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 12px;">🥖 ¿Qué lleva esta bolsa?</h3>
+
+                <!-- Add line row -->
+                <div class="pedido-add-row" style="grid-template-columns: 2fr 1fr auto;">
+                    <div>
+                        <label class="form-label">Producto</label>
+                        <select id="bag-producto" class="form-control">
+                            <option value="">Selecciona pan…</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}" data-name="{{ p.nombre }}">
+                                {{ p.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Cantidad (Pzs)</label>
+                        <input type="number" id="bag-cantidad" class="form-control" inputmode="numeric" min="1" placeholder="1">
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-success" onclick="agregarLineaBolsa()" style="margin-top: 22px;">
+                            ➕
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lines list -->
+                <div id="bag-lines" class="pedido-lines"></div>
+
+                <!-- Hidden inputs container -->
+                <div id="hidden-inputs"></div>
+
+                <div id="bag-total" class="mt-8 mb-16" style="text-align:right; font-weight:700; font-size:0.9rem; color:var(--color-text-secondary); display:none;">
+                    Contiene: <span id="total-piezas">0</span> piezas
+                </div>
+
+                <button type="submit" id="btn-crear-bolsa" class="btn btn-primary btn-block mt-8" disabled>
+                    🧊 CREAR BOLSA
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lotes existentes -->
+    <div>
+        <h2 class="page-title" style="font-size: 1.1rem; justify-content:center">📋 Bolsas Disponibles / Vendidas</h2>
+
+        {% if bolsas %}
+        <div class="mt-16">
+            {% for bolsa in bolsas %}
+            <div class="card mb-8 animate-fade">
+                <div class="card-body d-flex justify-between align-start" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="font-weight:700; font-size: 0.95rem; margin-bottom: 4px;">
+                            Bolsa #{{ bolsa.id }} — {{ bolsa.fecha_registro|date:"d/m/Y" }}
+                        </div>
+                        <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: var(--color-text-secondary);">
+                            {% for linea in bolsa.lineas.all %}
+                                <li>{{ linea.cantidad }} × {{ linea.producto.nombre }}</li>
+                            {% empty %}
+                                <li>Pan mixto no especificado</li>
+                            {% endfor %}
+                        </ul>
+                        <div class="mt-8" style="font-size: 0.85rem; font-weight: 600;">
+                            Total Piezas: {{ bolsa.cantidad_piezas }} · Precio Remate: <span class="text-danger">${{ bolsa.precio_remate }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-center gap-8">
+                        {% if bolsa.vendido %}
+                            <span class="badge badge-success">✅ Vendido por ${{ bolsa.ingreso_generado }}</span>
+                        {% else %}
+                            <form method="POST" style="display:inline" class="d-flex gap-8 align-center">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="vender">
+                                <input type="hidden" name="lote_id" value="{{ bolsa.id }}">
+                                <input type="number" name="ingreso_generado" class="form-control"
+                                       style="width:100px" inputmode="decimal" step="0.01" min="0.01"
+                                       value="{{ bolsa.precio_remate|stringformat:'f' }}" required>
+                                <button type="submit" class="btn btn-sm btn-success">Vendido</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state mt-16">
+            <div class="empty-state-icon">🧊</div>
+            <div class="empty-state-text">No hay bolsas de pan frío</div>
+            <div class="empty-state-subtext">Arma una bolsa cuando sobre pan del día anterior</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    let lineasBolsa = [];
+    let lineaBolsaCount = 0;
+
+    function agregarLineaBolsa() {
+        const select = document.getElementById('bag-producto');
+        const cantInput = document.getElementById('bag-cantidad');
+
+        const productoId = select.value;
+        const productoName = select.options[select.selectedIndex].dataset.name;
+        const cantidad = parseInt(cantInput.value) || 1;
+
+        if (!productoId || cantidad <= 0) {
+            alert('Selecciona un producto válido.');
+            return;
+        }
+
+        lineaBolsaCount++;
+        lineasBolsa.push({ id: lineaBolsaCount, productoId, productoName, cantidad });
+
+        renderLineasBolsa();
+
+        // Reset inputs
+        select.value = '';
+        cantInput.value = '';
+    }
+
+    function removerLineaBolsa(id) {
+        lineasBolsa = lineasBolsa.filter(l => l.id !== id);
+        renderLineasBolsa();
+    }
+
+    function renderLineasBolsa() {
+        const container = document.getElementById('bag-lines');
+        const hiddenContainer = document.getElementById('hidden-inputs');
+        const totalEl = document.getElementById('bag-total');
+        const totalPiezas = document.getElementById('total-piezas');
+        const btnCrear = document.getElementById('btn-crear-bolsa');
+
+        let html = '';
+        let hiddenHtml = '';
+        let total = 0;
+
+        lineasBolsa.forEach(l => {
+            total += l.cantidad;
+            html += `
+                <div class="pedido-line" style="padding: 6px 12px; margin-bottom:4px;">
+                    <span class="pedido-line-info" style="font-size: 0.8rem;">${l.productoName}</span>
+                    <span class="pedido-line-qty" style="font-size: 0.8rem;">${l.cantidad} piezas</span>
+                    <button type="button" class="pedido-line-remove" style="font-size: 0.9rem;" onclick="removerLineaBolsa(${l.id})">✕</button>
+                </div>
+            `;
+            hiddenHtml += `
+                <input type="hidden" name="producto_id[]" value="${l.productoId}">
+                <input type="hidden" name="cantidad[]" value="${l.cantidad}">
+            `;
+        });
+
+        container.innerHTML = html;
+        hiddenContainer.innerHTML = hiddenHtml;
+        totalPiezas.textContent = total;
+        totalEl.style.display = lineasBolsa.length > 0 ? 'block' : 'none';
+        btnCrear.disabled = lineasBolsa.length === 0;
+    }
+</script>
+{% endblock %}
+{% endblock %}

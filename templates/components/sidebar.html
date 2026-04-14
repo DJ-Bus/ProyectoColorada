@@ -1,0 +1,114 @@
+<!-- Sidebar Navigation -->
+<nav class="sidebar" id="sidebar">
+    <!-- Brand -->
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-icon">🍞</span>
+        <div class="sidebar-brand-title">La Colorada</div>
+        <div class="sidebar-brand-subtitle">Panadería &amp; ERP</div>
+    </div>
+
+    <!-- Navigation Links -->
+    <ul class="sidebar-nav">
+        <!-- Ventas — visible para todos -->
+        <li class="sidebar-section-title">Ventas</li>
+        <li>
+            <a href="{% url 'panaderia:registrar_venta' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">💰</span>
+                Registrar Venta
+            </a>
+        </li>
+
+        {% if user.is_staff %}
+        <li>
+            <a href="{% url 'panaderia:corte_del_dia' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">📊</span>
+                Corte del Día
+            </a>
+        </li>
+
+        <!-- Producción — solo staff -->
+        <li class="sidebar-section-title">Producción</li>
+        <li>
+            <a href="{% url 'panaderia:registrar_produccion' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">🔥</span>
+                Registrar Producción
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'panaderia:ver_stock' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">📦</span>
+                Inventario
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'panaderia:conteo_sucursal' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">📋</span>
+                Conteo Inventario
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'panaderia:tablero_inventario' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">📊</span>
+                Tablero Diario
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'panaderia:registrar_compra' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">🛒</span>
+                Compra Insumos
+            </a>
+        </li>
+
+        <!-- Mayoreo — solo staff -->
+        <li class="sidebar-section-title">Mayoreo</li>
+        <li>
+            <a href="{% url 'panaderia:crear_pedido' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">🚚</span>
+                Nuevo Pedido
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'panaderia:lista_pedidos' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">📋</span>
+                Pedidos del Día
+            </a>
+        </li>
+
+        <!-- Pan Frío — solo staff -->
+        <li class="sidebar-section-title">Pan Frío</li>
+        <li>
+            <a href="{% url 'panaderia:pan_frio_lista' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">🧊</span>
+                Lotes de Pan Frío
+            </a>
+        </li>
+
+        <!-- Admin -->
+        <li class="sidebar-section-title">Sistema</li>
+        <li>
+            <a href="/admin/" class="sidebar-link">
+                <span class="sidebar-link-icon">⚙️</span>
+                Administración
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+
+    <!-- Footer — User info -->
+    <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <div class="sidebar-user-avatar">
+                {{ user.get_short_name|default:user.username|truncatechars:2|upper }}
+            </div>
+            <div class="sidebar-user-info">
+                <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
+                <div class="sidebar-user-role">
+                    {% if user.is_staff %}Administrador{% else %}Empleado{% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="{% url 'logout' %}" class="sidebar-logout">
+            🚪 Cerrar sesión
+        </a>
+    </div>
+</nav>

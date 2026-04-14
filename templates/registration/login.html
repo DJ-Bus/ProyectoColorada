@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es-mx">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#DC2626">
+    <title>Iniciar Sesión — La Colorada</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="login-page">
+    <div class="login-container animate-scale">
+        <div class="login-header">
+            <span class="login-header-icon">🍞</span>
+            <h1 class="login-header-title">LA COLORADA</h1>
+            <p class="login-header-subtitle">Sistema de Gestión</p>
+        </div>
+
+        <div class="login-body">
+            {% if form.errors %}
+            <div class="alert alert-error mb-16">
+                ❌ Usuario o contraseña incorrectos.
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next|default:'/ventas/' }}">
+
+                <div class="form-group">
+                    <label class="form-label" for="id_username">Usuario</label>
+                    <input type="text"
+                           id="id_username"
+                           name="username"
+                           class="form-control form-control-lg"
+                           placeholder="Tu nombre de usuario"
+                           autocomplete="username"
+                           autofocus
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_password">Contraseña</label>
+                    <input type="password"
+                           id="id_password"
+                           name="password"
+                           class="form-control form-control-lg"
+                           placeholder="••••••••"
+                           autocomplete="current-password"
+                           required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block mt-8">
+                    ENTRAR
+                </button>
+            </form>
+        </div>
+
+        <div class="login-footer">
+            🍞 Panadería La Colorada — Cuautla, Morelos
+        </div>
+    </div>
+</body>
+</html>

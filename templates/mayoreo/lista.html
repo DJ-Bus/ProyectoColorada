@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Pedidos del Día — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered-wide">
+    <div class="page-header d-flex justify-between align-center">
+        <div>
+            <h1 class="page-title">📋 Pedidos Mayoreo</h1>
+            <p class="page-subtitle">Pedidos de hoy — {{ hoy|date:"d/m/Y" }}</p>
+        </div>
+        <a href="{% url 'panaderia:crear_pedido' %}" class="btn btn-primary">
+            ➕ Nuevo Pedido
+        </a>
+    </div>
+
+    {% if pedidos %}
+    {% for pedido in pedidos %}
+    <div class="card mb-16 animate-fade">
+        <div class="card-header">
+            <h2 class="card-header-title">
+                {{ pedido.empleado.nombre }} → {{ pedido.get_destino_display }}
+            </h2>
+            <div>
+                {% if pedido.cerrado %}
+                    <span class="badge badge-success">✅ Cerrado</span>
+                {% else %}
+                    <span class="badge badge-warning">⏳ Abierto</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th style="text-align:right">Entregadas</th>
+                        <th style="text-align:right">Regresadas</th>
+                        <th style="text-align:right">Vendidas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linea in pedido.lineas.all %}
+                    <tr>
+                        <td>{{ linea.producto.nombre }}</td>
+                        <td style="text-align:right">{{ linea.cantidad_entregada }}</td>
+                        <td style="text-align:right">{{ linea.cantidad_regresada }}</td>
+                        <td style="text-align:right; font-weight:700">{{ linea.piezas_vendidas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-between align-center">
+            <div>
+                <span style="font-size:0.85rem; color:var(--color-text-secondary)">
+                    Esperado: ${{ pedido.total_esperado|floatformat:2 }} · 
+                    Recibido: <strong>${{ pedido.monto_recibido }}</strong>
+                    {% if pedido.cerrado %}
+                    · Diferencia: 
+                        {% if pedido.diferencia > 0 %}
+                            <span class="text-danger font-bold">-${{ pedido.diferencia|floatformat:2 }}</span>
+                        {% elif pedido.diferencia < 0 %}
+                            <span class="text-success font-bold">+${{ pedido.diferencia|floatformat:2 }}</span>
+                        {% else %}
+                            <span class="text-success font-bold">$0.00 ✅</span>
+                        {% endif %}
+                    {% endif %}
+                </span>
+            </div>
+            {% if not pedido.cerrado %}
+            <a href="{% url 'panaderia:cerrar_pedido' pedido.id %}" class="btn btn-sm btn-success">
+                Cerrar pedido
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🚚</div>
+        <div class="empty-state-text">No hay pedidos mayoreo para hoy</div>
+        <div class="empty-state-subtext">Crea un pedido para enviar pan a los puestos</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

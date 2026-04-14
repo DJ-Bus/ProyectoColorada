@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Corte del Día — La Colorada{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-between align-center">
+    <div>
+        <h1 class="page-title">📊 Corte del Día</h1>
+        <p class="page-subtitle">{{ fecha|date:"l d \d\e F, Y" }}</p>
+    </div>
+    <form method="GET" class="d-flex gap-8 align-center">
+        <input type="date" name="fecha" value="{{ fecha|date:'Y-m-d' }}" class="form-control" style="width: auto;">
+        <button type="submit" class="btn btn-secondary btn-sm">Consultar</button>
+    </form>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card stat-card--success">
+        <div class="stat-card-icon">💰</div>
+        <div class="stat-card-value">${{ totales.ventas_sucursal|floatformat:2 }}</div>
+        <div class="stat-card-label">Ventas Sucursal</div>
+    </div>
+
+    <div class="stat-card stat-card--info">
+        <div class="stat-card-icon">🚚</div>
+        <div class="stat-card-value">${{ totales.cobro_mayoreo|floatformat:2 }}</div>
+        <div class="stat-card-label">Cobro Mayoreo</div>
+    </div>
+
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card-icon">🛒</div>
+        <div class="stat-card-value">${{ totales.gasto_insumos|floatformat:2 }}</div>
+        <div class="stat-card-label">Gasto Insumos</div>
+    </div>
+
+    <div class="stat-card {% if totales.ganancia_neta >= 0 %}stat-card--success{% else %}stat-card--danger{% endif %}">
+        <div class="stat-card-icon">📈</div>
+        <div class="stat-card-value {% if totales.ganancia_neta >= 0 %}text-success{% else %}text-danger{% endif %}">
+            ${{ totales.ganancia_neta|floatformat:2 }}
+        </div>
+        <div class="stat-card-label">Ganancia Neta</div>
+    </div>
+</div>
+
+<!-- Ventas del día -->
+<div class="card mt-24">
+    <div class="card-header">
+        <h2 class="card-header-title">💰 Ventas en Sucursal ({{ ventas_sucursal|length }})</h2>
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Hora</th>
+                    <th>Empleado</th>
+                    <th style="text-align:right">Monto</th>
+                    <th>Notas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas_sucursal %}
+                <tr>
+                    <td>{{ venta.fecha|date:"H:i" }}</td>
+                    <td>{{ venta.empleado.nombre }}</td>
+                    <td style="text-align:right; font-weight:700; color:var(--color-success)">${{ venta.monto }}</td>
+                    <td class="text-muted">{{ venta.notas|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="table-empty">No hay ventas registradas este día.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pedidos Mayoreo del día -->
+<div class="card mt-24">
+    <div class="card-header">
+        <h2 class="card-header-title">🚚 Pedidos Mayoreo ({{ pedidos_mayoreo|length }})</h2>
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Producto</th>
+                    <th style="text-align:right">Entregadas</th>
+                    <th style="text-align:right">Regresadas</th>
+                    <th style="text-align:right">Vendidas</th>
+                    <th style="text-align:right">Cobrado</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pedido in pedidos_mayoreo %}
+                <tr>
+                    <td>{{ pedido.empleado.nombre }}</td>
+                    <td>{{ pedido.producto.nombre }}</td>
+                    <td style="text-align:right">{{ pedido.cantidad_entregada }}</td>
+                    <td style="text-align:right">{{ pedido.cantidad_regresada }}</td>
+                    <td style="text-align:right; font-weight:700">{{ pedido.piezas_vendidas }}</td>
+                    <td style="text-align:right; font-weight:700">${{ pedido.monto_recibido }}</td>
+                    <td>
+                        {% if pedido.cerrado %}
+                            <span class="badge badge-success">✅ Cerrado</span>
+                        {% else %}
+                            <span class="badge badge-warning">⏳ Abierto</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="table-empty">No hay pedidos mayoreo este día.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Compras del día -->
+<div class="card mt-24">
+    <div class="card-header">
+        <h2 class="card-header-title">🛒 Compras de Insumos ({{ compras|length }})</h2>
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Insumo</th>
+                    <th style="text-align:right">Cantidad</th>
+                    <th style="text-align:right">Costo Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for compra in compras %}
+                <tr>
+                    <td>{{ compra.insumo }}</td>
+                    <td style="text-align:right">{{ compra.cantidad }}</td>
+                    <td style="text-align:right; font-weight:700; color:var(--color-danger)">${{ compra.costo_total }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="table-empty">No hay compras registradas este día.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

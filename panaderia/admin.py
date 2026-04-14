@@ -1,59 +1,81 @@
 from django.contrib import admin
-from django.utils.html import format_html # <-- Importamos esto para inyectar color
 from .models import (
-    Insumo, Producto, Empleado,
-    ProduccionDiaria, CompraInsumo,
-    VentaSucursal, PedidoMayoreo, PanFrio,
+    CompraInsumo, InventarioDiario, Empleado, Insumo,
+    LineaPedido, BolsaPanFrio, LineaBolsaPanFrio, PedidoMayoreo, Producto,
+    ProduccionDiaria, VentaSucursal,
 )
 
-admin.site.site_header  = "Administración - Panadería La Colorada"
-admin.site.site_title   = "La Colorada ERP"
-admin.site.index_title  = "Panel de Control Principal"
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
-    list_display   = ("nombre", "precio_publico", "precio_mayoreo", "stock_sucursal", "es_temporada")
-    search_fields  = ("nombre",)
-    list_filter    = ("es_temporada", "activo")
+    list_display = ("nombre", "precio_publico", "precio_mayoreo", "stock_sucursal", "es_temporada", "activo")
+    list_filter = ("activo", "es_temporada")
+    search_fields = ("nombre",)
+    list_editable = ("precio_publico", "precio_mayoreo", "activo")
 
-@admin.register(PedidoMayoreo)
-class PedidoMayoreoAdmin(admin.ModelAdmin):
-    list_display   = (
-        "empleado", "producto", "fecha",
-        "cantidad_entregada", "cantidad_regresada",
-        "piezas_vendidas_col", "monto_recibido", "diferencia_col",
-    )
-    list_filter    = ("fecha", "empleado")
 
-    @admin.display(description="Piezas vendidas")
-    def piezas_vendidas_col(self, obj):
-        return obj.piezas_vendidas
+@admin.register(Insumo)
+class InsumoAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "unidad", "activo")
+    list_filter = ("unidad", "activo")
+    search_fields = ("nombre",)
+    list_editable = ("activo",)
 
-    @admin.display(description="Diferencia $")
-    def diferencia_col(self, obj):
-        d = obj.diferencia
-        # Rojo si falta dinero, verde si está bien
-        color = "red" if d > 0 else "green"
-        # Inyectamos el color directamente en el HTML de la tabla
-        return format_html('<span style="color: {}; font-weight: bold;">${:.2f}</span>', color, d)
 
-@admin.register(VentaSucursal)
-class VentaSucursalAdmin(admin.ModelAdmin):
-    list_display   = ("fecha", "empleado", "monto", "notas")
-    list_filter    = ("fecha", "empleado")
-    date_hierarchy = "fecha"        # navegador por día/mes/año arriba de la tabla
+@admin.register(Empleado)
+class EmpleadoAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "rol", "usuario", "activo")
+    list_filter = ("rol", "activo")
+    search_fields = ("nombre",)
+
 
 @admin.register(ProduccionDiaria)
 class ProduccionDiariaAdmin(admin.ModelAdmin):
-    list_display   = ("fecha", "producto", "piezas_producidas")
-    list_filter    = ("producto",)
+    list_display = ("fecha", "producto", "piezas_producidas")
+    list_filter = ("fecha", "producto")
     date_hierarchy = "fecha"
+
 
 @admin.register(CompraInsumo)
 class CompraInsumoAdmin(admin.ModelAdmin):
-    list_display   = ("fecha", "insumo", "cantidad", "costo_total")
+    list_display = ("fecha", "insumo", "cantidad", "costo_total")
+    list_filter = ("fecha", "insumo")
     date_hierarchy = "fecha"
 
-admin.site.register(Insumo)
-admin.site.register(Empleado)
-admin.site.register(PanFrio)
+
+@admin.register(VentaSucursal)
+class VentaSucursalAdmin(admin.ModelAdmin):
+    list_display = ("fecha", "empleado", "monto", "notas")
+    list_filter = ("fecha", "empleado")
+    date_hierarchy = "fecha"
+
+
+class LineaPedidoInline(admin.TabularInline):
+    model = LineaPedido
+    extra = 1
+
+
+@admin.register(PedidoMayoreo)
+class PedidoMayoreoAdmin(admin.ModelAdmin):
+    list_display = ("fecha", "empleado", "destino", "monto_recibido", "cerrado")
+    list_filter = ("fecha", "empleado", "destino", "cerrado")
+    inlines = [LineaPedidoInline]
+    date_hierarchy = "fecha"
+
+
+class LineaBolsaPanFrioInline(admin.TabularInline):
+    model = LineaBolsaPanFrio
+    extra = 1
+
+@admin.register(BolsaPanFrio)
+class BolsaPanFrioAdmin(admin.ModelAdmin):
+    list_display = ("fecha_registro", "precio_remate", "vendido", "ingreso_generado", "cantidad_piezas")
+    list_filter = ("vendido", "fecha_registro")
+    inlines = [LineaBolsaPanFrioInline]
+    date_hierarchy = "fecha_registro"
+
+@admin.register(InventarioDiario)
+class InventarioDiarioAdmin(admin.ModelAdmin):
+    list_display = ("fecha", "producto", "conteo_apertura", "conteo_cierre")
+    list_filter = ("fecha",)
+    date_hierarchy = "fecha"

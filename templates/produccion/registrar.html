@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Producción — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered">
+    <div class="page-header" style="text-align:center">
+        <h1 class="page-title" style="justify-content:center">🔥 Registrar Producción</h1>
+        <p class="page-subtitle">¿Cuántas piezas salieron del horno hoy?</p>
+    </div>
+
+    <div class="card animate-scale">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="produccion">
+
+                <div class="form-group">
+                    <label class="form-label" for="id_producto">Producto</label>
+                    <select id="id_producto" name="producto" class="form-control" required>
+                        <option value="">Selecciona un pan…</option>
+                        {% for producto in productos %}
+                        <option value="{{ producto.id }}">{{ producto.nombre }} (Stock: {{ producto.stock_sucursal }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_piezas_producidas">Piezas producidas</label>
+                    <input type="number"
+                           id="id_piezas_producidas"
+                           name="piezas_producidas"
+                           class="form-control form-control-lg"
+                           inputmode="numeric"
+                           min="1"
+                           placeholder="0"
+                           required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block mt-8">
+                    🔥 REGISTRAR PRODUCCIÓN
+                </button>
+            </form>
+
+            <!-- Agregar nuevo producto (solo admin) -->
+            {% if user.is_staff %}
+            <button class="collapsible-toggle" onclick="document.getElementById('nuevo-producto').classList.toggle('open')">
+                ➕ Agregar nuevo pan
+            </button>
+            <div id="nuevo-producto" class="collapsible-content">
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="nuevo_producto">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del pan</label>
+                        <input type="text" name="nuevo_nombre" class="form-control" placeholder="Ej: Cuerno de chocolate" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Precio público ($)</label>
+                            <input type="number" name="nuevo_precio_publico" class="form-control" step="0.01" min="0.01" placeholder="12.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Precio mayoreo ($)</label>
+                            <input type="number" name="nuevo_precio_mayoreo" class="form-control" step="0.01" min="0.01" placeholder="8.00" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">
+                        ✅ Crear Producto
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Producción de hoy -->
+    {% if produccion_hoy %}
+    <div class="card mt-24">
+        <div class="card-header">
+            <h2 class="card-header-title">📋 Producción de hoy</h2>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th style="text-align:right">Piezas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prod in produccion_hoy %}
+                    <tr>
+                        <td>{{ prod.producto.nombre }}</td>
+                        <td style="text-align:right; font-weight:700">{{ prod.piezas_producidas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-right">
+            <strong>Total: {{ total_piezas_hoy }} piezas</strong>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

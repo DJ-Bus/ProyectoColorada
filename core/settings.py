@@ -1,4 +1,4 @@
-# core/settings.py — versión corregida
+# core/settings.py — ERP La Colorada
 from pathlib import Path
 import os
 import environ
@@ -27,17 +27,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "whitenoise.runserver_nostatic",   # sirve estáticos en local también
     "django.contrib.staticfiles",
-    # Tus apps
-    "panaderia",   # donde están tus models.py actuales
-    # Cuando las separes en apps:
-    # "apps.core",
-    # "apps.ventas",
-    # "apps.bot",
+    # App principal
+    "panaderia",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # <-- justo después de Security
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # justo después de Security
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -51,7 +47,7 @@ ROOT_URLCONF = "core.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],   # para tus templates globales
+        "DIRS": [BASE_DIR / "templates"],   # templates globales
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -67,8 +63,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 
 # ── Base de datos ─────────────────────────────────────────────────────────────
-# En local: si .env no tiene DATABASE_URL → usa SQLite automáticamente
-# En producción: DATABASE_URL=postgresql://... en Render/Supabase
 DATABASES = {
     "default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
 }
@@ -94,6 +88,9 @@ USE_TZ        = True
 # ── Archivos estáticos ────────────────────────────────────────────────────────
 STATIC_URL  = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -101,10 +98,20 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
-} 
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ── WhatsApp (Meta Cloud API) — vacío en local, se llena en Render ────────────
+# ── Django Messages — mapear tags a clases CSS ────────────────────────────────
+from django.contrib.messages import constants as message_constants
+MESSAGE_TAGS = {
+    message_constants.DEBUG: "info",
+    message_constants.INFO: "info",
+    message_constants.SUCCESS: "success",
+    message_constants.WARNING: "warning",
+    message_constants.ERROR: "error",
+}
+
+# ── WhatsApp (Meta Cloud API) — vacío en local, se llena en producción ────────
 WHATSAPP_TOKEN        = env("WHATSAPP_TOKEN", default="")
 WHATSAPP_VERIFY_TOKEN = env("WHATSAPP_VERIFY_TOKEN", default="panaderia_bustamante_2024")
 WHATSAPP_PHONE_ID     = env("WHATSAPP_PHONE_ID", default="")

@@ -1,6 +1,9 @@
-# models.py
+# panaderia/models.py
 from __future__ import annotations
+
 from decimal import Decimal
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
@@ -8,16 +11,31 @@ from django.utils import timezone
 
 
 # ─────────────────────────────────────────────
-# CATÁLOGOS (Tu papá los administra)
+# MODELO BASE — timestamps de auditoría
 # ─────────────────────────────────────────────
 
-class Insumo(models.Model):
+class ModeloBase(models.Model):
+    """Clase abstracta que agrega timestamps a todos los modelos."""
+
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+# ─────────────────────────────────────────────
+# CATÁLOGOS
+# ─────────────────────────────────────────────
+
+class Insumo(ModeloBase):
     """Materia prima: Harina, Azúcar, Cocoa, Margarina… lo que sea."""
 
     UNIDADES = [
         ("bulto", "Bulto"),
         ("caja", "Caja"),
         ("kg", "Kilogramo"),
+        ("g", "Gramo"),
         ("litro", "Litro"),
         ("pieza", "Pieza"),
     ]
@@ -35,7 +53,7 @@ class Insumo(models.Model):
         return f"{self.nombre} ({self.get_unidad_display()})"
 
 
-class Producto(models.Model):
+class Producto(ModeloBase):
     """Pan vendible: Concha, Coronada, Pan Mini… tu papá agrega los que quiera."""
 
     nombre = models.CharField(max_length=100)
@@ -49,7 +67,6 @@ class Producto(models.Model):
         validators=[MinValueValidator(Decimal("0.01"))],
         help_text="Precio al que se le da a los puestos",
     )
-    # Stock en sucursal: se llena con ProduccionDiaria y baja con préstamos
     stock_sucursal = models.PositiveIntegerField(default=0)
     es_temporada = models.BooleanField(
         default=False,
@@ -75,8 +92,13 @@ class Producto(models.Model):
         self.stock_sucursal -= cantidad
         self.save(update_fields=["stock_sucursal"])
 
+    def sumar_stock(self, cantidad: int) -> None:
+        """Suma piezas al mostrador (producción, regreso de puesto)."""
+        self.stock_sucursal += cantidad
+        self.save(update_fields=["stock_sucursal"])
 
-class Empleado(models.Model):
+
+class Empleado(ModeloBase):
     """Persona que atiende la sucursal o lleva pan a un puesto."""
 
     ROLES = [
@@ -84,6 +106,14 @@ class Empleado(models.Model):
         ("puesto", "Puesto Mayoreo"),
     ]
 
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="empleado",
+        help_text="Usuario de Django para login",
+    )
     nombre = models.CharField(max_length=100)
     rol = models.CharField(max_length=20, choices=ROLES, default="sucursal")
     activo = models.BooleanField(default=True)
@@ -101,10 +131,10 @@ class Empleado(models.Model):
 # OPERACIÓN DIARIA
 # ─────────────────────────────────────────────
 
-class ProduccionDiaria(models.Model):
+class ProduccionDiaria(ModeloBase):
     """
     Cuántas piezas salieron del horno hoy.
-    Al guardar, suma al stock_sucursal del producto.
+    Al guardar por primera vez, suma al stock_sucursal del producto.
     """
 
     fecha = models.DateField(default=timezone.now, db_index=True)
@@ -119,13 +149,16 @@ class ProduccionDiaria(models.Model):
         verbose_name = "Producción Diaria"
         verbose_name_plural = "Producción Diaria"
         ordering = ["-fecha"]
-        # Un registro por producto por día
-        unique_together = [("fecha", "producto")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["fecha", "producto"],
+                name="unique_produccion_diaria",
+            )
+        ]
 
     def save(self, *args, **kwargs) -> None:
         with transaction.atomic():
             if self.pk is None:
-                # Primera vez: suma al mostrador
                 Producto.objects.filter(pk=self.producto_id).update(
                     stock_sucursal=models.F("stock_sucursal") + self.piezas_producidas
                 )
@@ -135,11 +168,8 @@ class ProduccionDiaria(models.Model):
         return f"{self.producto} — {self.piezas_producidas} pzs ({self.fecha:%d/%m/%Y})"
 
 
-class CompraInsumo(models.Model):
-    """
-    Lo que se compró hoy en el mercado.
-    No se lleva control de precio fijo — varía diario, se registra al comprar.
-    """
+class CompraInsumo(ModeloBase):
+    """Lo que se compró hoy en el mercado."""
 
     fecha = models.DateField(default=timezone.now, db_index=True)
     insumo = models.ForeignKey(
@@ -173,7 +203,7 @@ class CompraInsumo(models.Model):
 # VENTAS
 # ─────────────────────────────────────────────
 
-class VentaSucursal(models.Model):
+class VentaSucursal(ModeloBase):
     """
     Registro de caja en mostrador.
     El empleado solo captura el monto cobrado al cliente — sin contar piezas.
@@ -198,41 +228,37 @@ class VentaSucursal(models.Model):
         return f"{self.empleado} — ${self.monto} ({self.fecha:%d/%m/%Y %H:%M})"
 
 
-class PedidoMayoreo(models.Model):
-    """
-    Pan que sale a un puesto por la mañana y se ajusta al regresar.
+# ─────────────────────────────────────────────
+# MAYOREO — Pedido con múltiples productos
+# ─────────────────────────────────────────────
 
-    Flujo:
-      1. Se crea con cantidad_entregada (producción + préstamo de sucursal).
-      2. Al regresar, se actualiza cantidad_regresada.
-      3. El sistema calcula piezas_vendidas y total_a_pagar.
-
-    El campo prestado_de_sucursal descuenta automáticamente el stock
-    del mostrador en el momento de la creación (con transacción atómica).
+class PedidoMayoreo(ModeloBase):
     """
+    Pedido que sale a un puesto por la mañana.
+    Contiene múltiples líneas (productos).
+    Al cerrar, el pan regresado se suma al stock de sucursal.
+    """
+
+    DESTINOS = [
+        ("mercado", "Mercado"),
+        ("la_burgos", "La Burgos"),
+    ]
 
     empleado = models.ForeignKey(
         Empleado, on_delete=models.PROTECT, related_name="pedidos_mayoreo"
     )
-    producto = models.ForeignKey(
-        Producto, on_delete=models.PROTECT, related_name="pedidos_mayoreo"
-    )
     fecha = models.DateField(default=timezone.now, db_index=True)
-    cantidad_entregada = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],
-        help_text="Total de piezas que se llevó (producción + préstamo)",
-    )
-    cantidad_regresada = models.PositiveIntegerField(
-        default=0,
-        help_text="Pan que devolvió al final del día",
-    )
-    prestado_de_sucursal = models.PositiveIntegerField(
-        default=0,
-        help_text="Piezas tomadas del mostrador para completar el pedido",
+    destino = models.CharField(
+        max_length=30, choices=DESTINOS, default="mercado",
+        help_text="¿A dónde se lleva el pan?",
     )
     monto_recibido = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00"),
         help_text="Dinero que entregó el empleado al ajustar cuentas",
+    )
+    cerrado = models.BooleanField(
+        default=False,
+        help_text="¿Ya se hizo el ajuste de cuentas al final del día?",
     )
 
     class Meta:
@@ -240,89 +266,179 @@ class PedidoMayoreo(models.Model):
         verbose_name_plural = "Pedidos Mayoreo"
         ordering = ["-fecha"]
 
-    # ── Propiedades calculadas ──────────────────
+    @property
+    def total_piezas_entregadas(self) -> int:
+        return sum(l.cantidad_entregada for l in self.lineas.all())
+
+    @property
+    def total_piezas_regresadas(self) -> int:
+        return sum(l.cantidad_regresada for l in self.lineas.all())
+
+    @property
+    def total_piezas_vendidas(self) -> int:
+        return self.total_piezas_entregadas - self.total_piezas_regresadas
+
+    @property
+    def total_esperado(self) -> Decimal:
+        """Lo que debería entregar según precio mayoreo de cada línea."""
+        return sum(
+            (Decimal(l.cantidad_entregada - l.cantidad_regresada) * l.producto.precio_mayoreo)
+            for l in self.lineas.select_related("producto")
+        )
+
+    @property
+    def diferencia(self) -> Decimal:
+        """Positivo = falta dinero. Negativo = sobra."""
+        return self.total_esperado - self.monto_recibido
+
+    def __str__(self) -> str:
+        return (
+            f"Pedido {self.empleado} → {self.get_destino_display()} "
+            f"({self.fecha:%d/%m/%Y})"
+        )
+
+
+class LineaPedido(ModeloBase):
+    """
+    Línea de un pedido mayoreo: un producto con su cantidad.
+    """
+
+    pedido = models.ForeignKey(
+        PedidoMayoreo, on_delete=models.CASCADE, related_name="lineas"
+    )
+    producto = models.ForeignKey(
+        Producto, on_delete=models.PROTECT, related_name="lineas_pedido"
+    )
+    cantidad_entregada = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Piezas que se llevó",
+    )
+    cantidad_regresada = models.PositiveIntegerField(
+        default=0,
+        help_text="Piezas que devolvió al final del día",
+    )
+    prestado_de_sucursal = models.PositiveIntegerField(
+        default=0,
+        help_text="Piezas tomadas del mostrador",
+    )
+
+    class Meta:
+        verbose_name = "Línea de Pedido"
+        verbose_name_plural = "Líneas de Pedido"
 
     @property
     def piezas_vendidas(self) -> int:
         return self.cantidad_entregada - self.cantidad_regresada
 
     @property
-    def total_esperado(self) -> Decimal:
-        """Lo que debería entregar según precio mayoreo."""
+    def subtotal_esperado(self) -> Decimal:
         return Decimal(self.piezas_vendidas) * self.producto.precio_mayoreo
-
-    @property
-    def diferencia(self) -> Decimal:
-        """Positivo = falta dinero. Negativo = sobra (raro pero posible)."""
-        return self.total_esperado - self.monto_recibido
-
-    # ── Validación ──────────────────────────────
 
     def clean(self) -> None:
         if self.cantidad_regresada > self.cantidad_entregada:
-            raise ValidationError(
-                "No puede regresar más pan del que se llevó."
-            )
-
-    # ── Persistencia ────────────────────────────
-
-    def save(self, *args, **kwargs) -> None:
-        self.full_clean()
-        if self.pk is None and self.prestado_de_sucursal > 0:
-            with transaction.atomic():
-                producto = Producto.objects.select_for_update().get(
-                    pk=self.producto_id
-                )
-                producto.descontar_stock(self.prestado_de_sucursal)
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+            raise ValidationError("No puede regresar más pan del que se llevó.")
 
     def __str__(self) -> str:
-        return (
-            f"Pedido {self.empleado} — {self.producto} "
-            f"({self.cantidad_entregada} pzs, {self.fecha:%d/%m/%Y})"
-        )
+        return f"{self.producto} × {self.cantidad_entregada}"
 
 
 # ─────────────────────────────────────────────
-# PAN FRÍO
+# CONTEO DE FIN DE DÍA
 # ─────────────────────────────────────────────
 
-class PanFrio(models.Model):
+class InventarioDiario(ModeloBase):
     """
-    Lote de pan sobrante acumulado para remate.
-    Origen: lo que regresaron los puestos + lo que no se vendió en sucursal.
-    Se vende más barato como lote o bolsa.
+    Control estricto de inventario por día.
+    Apertura: Pan contado en la mañana.
+    Cierre: Pan contado al final del día.
     """
 
-    fecha_registro = models.DateField(default=timezone.now, db_index=True)
-    cantidad_piezas = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],
-        help_text="Total de pan sobrante reunido ese día",
+    fecha = models.DateField(default=timezone.now, db_index=True)
+    producto = models.ForeignKey(
+        Producto, on_delete=models.PROTECT, related_name="inventarios_diarios"
     )
-    precio_remate = models.DecimalField(
-        max_digits=8, decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.01"))],
-        help_text="Precio por bolsa/lote de pan frío",
+    conteo_apertura = models.PositiveIntegerField(
+        default=0,
+        help_text="Pan inicial en la mañana",
     )
-    vendido = models.BooleanField(
-        default=False,
-        help_text="¿Ya se vendió este lote?",
-    )
-    ingreso_generado = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00"),
-        help_text="Dinero real que entró al vender el pan frío",
+    conteo_cierre = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Pan sobrante en la noche",
     )
 
     class Meta:
-        verbose_name = "Pan Frío"
-        verbose_name_plural = "Pan Frío"
+        verbose_name = "Inventario Diario"
+        verbose_name_plural = "Inventarios Diarios"
+        ordering = ["-fecha"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["fecha", "producto"],
+                name="unique_inventario_diario",
+            )
+        ]
+
+    def __str__(self) -> str:
+        cierre_str = self.conteo_cierre if self.conteo_cierre is not None else "?"
+        return f"{self.producto} — Apertura: {self.conteo_apertura} Cierre: {cierre_str} ({self.fecha:%d/%m/%Y})"
+
+
+# ─────────────────────────────────────────────
+# PAN FRÍO (BOLSAS MIXTAS)
+# ─────────────────────────────────────────────
+
+class BolsaPanFrio(ModeloBase):
+    """
+    Bolsa mixta armada con pan sobrante del día anterior.
+    """
+
+    fecha_registro = models.DateField(default=timezone.now, db_index=True)
+    precio_remate = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        help_text="Precio total de la bolsa armada",
+    )
+    vendido = models.BooleanField(
+        default=False,
+        help_text="¿Ya se vendió esta bolsa?",
+    )
+    ingreso_generado = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00"),
+        help_text="Dinero que entró al vender la bolsa",
+    )
+
+    class Meta:
+        verbose_name = "Bolsa de Pan Frío"
+        verbose_name_plural = "Bolsas de Pan Frío"
         ordering = ["-fecha_registro"]
+
+    @property
+    def cantidad_piezas(self) -> int:
+        return sum(l.cantidad for l in self.lineas.all())
 
     def __str__(self) -> str:
         estado = "Vendido" if self.vendido else "Disponible"
-        return (
-            f"Lote Pan Frío — {self.fecha_registro:%d/%m/%Y} "
-            f"({self.cantidad_piezas} pzs) [{estado}]"
-        )
+        return f"Bolsa Pan Frío — {self.fecha_registro:%d/%m/%Y} [{estado}]"
+
+
+class LineaBolsaPanFrio(ModeloBase):
+    """
+    Pan contenido dentro de una bolsa de pan frío.
+    """
+
+    bolsa = models.ForeignKey(
+        BolsaPanFrio, on_delete=models.CASCADE, related_name="lineas"
+    )
+    producto = models.ForeignKey(
+        Producto, on_delete=models.PROTECT, related_name="lineas_pan_frio"
+    )
+    cantidad = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Piezas de este producto ingresadas en la bolsa",
+    )
+
+    class Meta:
+        verbose_name = "Línea de Bolsa Fría"
+        verbose_name_plural = "Líneas de Bolsa Fría"
+
+    def __str__(self) -> str:
+        return f"{self.cantidad} × {self.producto}"

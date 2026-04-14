@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Tablero de Inventario — La Colorada{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-between align-center">
+    <div>
+        <h1 class="page-title">📊 Tablero de Inventario</h1>
+        <p class="page-subtitle">Suma de movimientos del día — {{ hoy|date:"d/m/Y" }}</p>
+    </div>
+    <div class="d-flex gap-8">
+        <a href="{% url 'panaderia:conteo_sucursal' %}" class="btn btn-secondary">
+            📋 Ir al Conteo Manual
+        </a>
+    </div>
+</div>
+
+<div class="card animate-scale">
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th style="text-align:right">Apertura</th>
+                    <th style="text-align:right; color:var(--color-success)">+ Producción</th>
+                    <th style="text-align:right; color:var(--color-success)">+ Regresado</th>
+                    <th style="text-align:right; color:var(--color-danger)">- Pan Frío</th>
+                    <th style="text-align:right">Cierre</th>
+                    <th style="text-align:right; font-size:1.1em;">= Vendido Est.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in tablero_data %}
+                <tr>
+                    <td style="font-weight:600;">{{ row.producto.nombre }}</td>
+                    <td style="text-align:right">{{ row.apertura }}</td>
+                    <td style="text-align:right; color:var(--color-success)">
+                        {% if row.producido > 0 %}+{{ row.producido }}{% else %}0{% endif %}
+                    </td>
+                    <td style="text-align:right; color:var(--color-success)">
+                        {% if row.regresado > 0 %}+{{ row.regresado }}{% else %}0{% endif %}
+                    </td>
+                    <td style="text-align:right; color:var(--color-danger)">
+                        {% if row.bolsas_frio > 0 %}-{{ row.bolsas_frio }}{% else %}0{% endif %}
+                    </td>
+                    <td style="text-align:right">
+                        {% if row.cierre == "?" %}
+                            <span class="badge badge-warning">Sin cierre</span>
+                        {% else %}
+                            {{ row.cierre }}
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right; font-weight:800; font-size:1.05rem; background: var(--color-surface-hover);">
+                        {% if row.vendido_calculado == "?" %}
+                            <span class="text-muted">N/A</span>
+                        {% else %}
+                            {{ row.vendido_calculado }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="card-footer" style="padding: 16px 20px; font-size: 0.85rem; color: var(--color-text-secondary);">
+        <strong>Fórmula:</strong> (Apertura + Producción + Regresado) - (Pan Frío + Cierre) = <strong>Pan vendido en sucursal</strong>.<br>
+        Esta cantidad mostrada en la última columna debe coincidir con el dinero cobrado en mostrador al final del día.
+    </div>
+</div>
+{% endblock %}

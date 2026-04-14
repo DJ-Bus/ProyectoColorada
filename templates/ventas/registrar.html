@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Venta — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered">
+    <div class="page-header" style="text-align:center">
+        <h1 class="page-title" style="justify-content:center">💰 Registrar Venta</h1>
+        <p class="page-subtitle">Captura el monto cobrado al cliente</p>
+    </div>
+
+    <div class="card animate-scale">
+        <div class="card-body">
+            <form method="POST" id="venta-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label class="form-label" for="id_monto">Monto Total ($)</label>
+                    <input type="number"
+                           id="id_monto"
+                           name="monto"
+                           class="form-control form-control-lg"
+                           inputmode="decimal"
+                           step="0.01"
+                           min="0.01"
+                           placeholder="0.00"
+                           required
+                           autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_notas">Notas (opcional)</label>
+                    <textarea id="id_notas"
+                              name="notas"
+                              class="form-control"
+                              rows="2"
+                              placeholder="Ej: cliente frecuente, pan de encargo..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block mt-8">
+                    ✅ REGISTRAR VENTA
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Últimas ventas del día -->
+    <div class="mt-24">
+        <h2 class="page-title" style="font-size: 1.1rem; justify-content:center">🕒 Ventas de hoy</h2>
+        <div class="mt-16">
+            {% for venta in ultimas_ventas %}
+            <div class="venta-item animate-fade">
+                <div class="venta-item-left">
+                    <span class="venta-item-name">{{ venta.empleado.nombre }}</span>
+                    <span class="venta-item-time">{{ venta.fecha|date:"H:i" }}{% if venta.notas %} · {{ venta.notas|truncatechars:30 }}{% endif %}</span>
+                </div>
+                <span class="venta-item-amount">${{ venta.monto }}</span>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🧾</div>
+                <div class="empty-state-text">No hay ventas registradas hoy</div>
+                <div class="empty-state-subtext">¡Registra la primera venta del día!</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

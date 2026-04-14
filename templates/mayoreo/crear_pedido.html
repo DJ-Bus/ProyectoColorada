@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Pedido Mayoreo — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered-wide">
+    <div class="page-header" style="text-align:center">
+        <h1 class="page-title" style="justify-content:center">🚚 Crear Pedido Mayoreo</h1>
+        <p class="page-subtitle">Carga los panes y luego crea el pedido</p>
+    </div>
+
+    <div class="card animate-scale">
+        <div class="card-body">
+            <form method="POST" id="pedido-form">
+                {% csrf_token %}
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label class="form-label">Empleado</label>
+                        <select name="empleado" class="form-control" required>
+                            <option value="">Selecciona…</option>
+                            {% for emp in empleados_puesto %}
+                            <option value="{{ emp.id }}">{{ emp.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Destino</label>
+                        <select name="destino" class="form-control" required>
+                            {% for value, label in destinos %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--color-border);">
+
+                <h3 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 12px;">📦 Agregar productos al pedido</h3>
+
+                <!-- Add line row -->
+                <div class="pedido-add-row">
+                    <div>
+                        <label class="form-label">Producto</label>
+                        <select id="add-producto" class="form-control">
+                            <option value="">Selecciona pan…</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}" data-name="{{ p.nombre }}" data-stock="{{ p.stock_sucursal }}">
+                                {{ p.nombre }} (Stock: {{ p.stock_sucursal }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" id="add-cantidad" class="form-control" inputmode="numeric" min="1" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="form-label">Préstamo suc.</label>
+                        <input type="number" id="add-prestamo" class="form-control" inputmode="numeric" min="0" value="0" placeholder="0">
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-success" onclick="agregarLinea()" style="margin-top: 22px;">
+                            ➕
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lines list -->
+                <div id="pedido-lines" class="pedido-lines"></div>
+
+                <!-- Hidden inputs container -->
+                <div id="hidden-inputs"></div>
+
+                <div id="pedido-total" class="mt-16" style="text-align:center; font-weight:700; font-size:1.1rem; color:var(--color-text-secondary); display:none;">
+                    Total: <span id="total-piezas">0</span> piezas
+                </div>
+
+                <button type="submit" id="btn-crear-pedido" class="btn btn-primary btn-lg btn-block mt-16" disabled>
+                    🚚 CREAR PEDIDO
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    let lineas = [];
+    let lineaCount = 0;
+
+    function agregarLinea() {
+        const select = document.getElementById('add-producto');
+        const cantInput = document.getElementById('add-cantidad');
+        const prestInput = document.getElementById('add-prestamo');
+
+        const productoId = select.value;
+        const productoName = select.options[select.selectedIndex].dataset.name;
+        const cantidad = parseInt(cantInput.value) || 0;
+        const prestamo = parseInt(prestInput.value) || 0;
+
+        if (!productoId || cantidad <= 0) {
+            alert('Selecciona un producto y una cantidad válida.');
+            return;
+        }
+
+        lineaCount++;
+        lineas.push({ id: lineaCount, productoId, productoName, cantidad, prestamo });
+
+        renderLineas();
+
+        // Reset inputs
+        select.value = '';
+        cantInput.value = '';
+        prestInput.value = '0';
+    }
+
+    function removerLinea(id) {
+        lineas = lineas.filter(l => l.id !== id);
+        renderLineas();
+    }
+
+    function renderLineas() {
+        const container = document.getElementById('pedido-lines');
+        const hiddenContainer = document.getElementById('hidden-inputs');
+        const totalEl = document.getElementById('pedido-total');
+        const totalPiezas = document.getElementById('total-piezas');
+        const btnCrear = document.getElementById('btn-crear-pedido');
+
+        let html = '';
+        let hiddenHtml = '';
+        let total = 0;
+
+        lineas.forEach(l => {
+            total += l.cantidad;
+            html += `
+                <div class="pedido-line">
+                    <span class="pedido-line-info">${l.productoName}</span>
+                    <span class="pedido-line-qty">${l.cantidad} pzs${l.prestamo > 0 ? ' (préstamo: ' + l.prestamo + ')' : ''}</span>
+                    <button type="button" class="pedido-line-remove" onclick="removerLinea(${l.id})">✕</button>
+                </div>
+            `;
+            hiddenHtml += `
+                <input type="hidden" name="producto_id[]" value="${l.productoId}">
+                <input type="hidden" name="cantidad[]" value="${l.cantidad}">
+                <input type="hidden" name="prestado[]" value="${l.prestamo}">
+            `;
+        });
+
+        container.innerHTML = html;
+        hiddenContainer.innerHTML = hiddenHtml;
+        totalPiezas.textContent = total;
+        totalEl.style.display = lineas.length > 0 ? 'block' : 'none';
+        btnCrear.disabled = lineas.length === 0;
+    }
+</script>
+{% endblock %}
+{% endblock %}

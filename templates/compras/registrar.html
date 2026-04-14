@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Compra de Insumos — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered">
+    <div class="page-header" style="text-align:center">
+        <h1 class="page-title" style="justify-content:center">🛒 Registrar Compra de Insumos</h1>
+        <p class="page-subtitle">¿Qué se compró hoy en el mercado?</p>
+    </div>
+
+    <div class="card animate-scale">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="compra">
+
+                <div class="form-group">
+                    <label class="form-label" for="id_insumo">Insumo</label>
+                    <select id="id_insumo" name="insumo" class="form-control" required>
+                        <option value="">Selecciona un insumo…</option>
+                        {% for insumo in insumos %}
+                        <option value="{{ insumo.id }}">{{ insumo.nombre }} ({{ insumo.get_unidad_display }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_cantidad">Cantidad</label>
+                    <input type="number"
+                           id="id_cantidad"
+                           name="cantidad"
+                           class="form-control"
+                           inputmode="decimal"
+                           step="0.01"
+                           min="0.01"
+                           placeholder="Ej. 2.5"
+                           required>
+                    <div class="form-hint">Bultos, cajas, kg… según la unidad del insumo</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_costo_total">Costo total ($)</label>
+                    <input type="number"
+                           id="id_costo_total"
+                           name="costo_total"
+                           class="form-control form-control-lg"
+                           inputmode="decimal"
+                           step="0.01"
+                           min="0.01"
+                           placeholder="0.00"
+                           required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block mt-8">
+                    🛒 REGISTRAR COMPRA
+                </button>
+            </form>
+
+            <!-- Agregar nuevo insumo (solo admin) -->
+            {% if user.is_staff %}
+            <button class="collapsible-toggle" onclick="document.getElementById('nuevo-insumo').classList.toggle('open')">
+                ➕ Agregar nuevo insumo
+            </button>
+            <div id="nuevo-insumo" class="collapsible-content">
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="nuevo_insumo">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del insumo</label>
+                        <input type="text" name="nuevo_nombre" class="form-control" placeholder="Ej: Pasta, Vainilla…" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Unidad de medida</label>
+                        <select name="nuevo_unidad" class="form-control" required>
+                            <option value="">Selecciona…</option>
+                            {% for value, label in unidades_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">
+                        ✅ Crear Insumo
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Compras de hoy -->
+    {% if compras_hoy %}
+    <div class="card mt-24">
+        <div class="card-header">
+            <h2 class="card-header-title">📋 Compras de hoy</h2>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Insumo</th>
+                        <th style="text-align:right">Cantidad</th>
+                        <th style="text-align:right">Costo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in compras_hoy %}
+                    <tr>
+                        <td>{{ c.insumo }}</td>
+                        <td style="text-align:right">{{ c.cantidad }}</td>
+                        <td style="text-align:right; font-weight:700; color:var(--color-danger)">${{ c.costo_total }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-right">
+            <strong>Total gastado: ${{ total_compras_hoy|floatformat:2 }}</strong>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
