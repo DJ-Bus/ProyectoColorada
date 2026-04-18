@@ -23,6 +23,8 @@
                                 <th style="text-align:right">Entregadas</th>
                                 <th style="text-align:right">Precio c/u</th>
                                 <th style="text-align:center">Regresó</th>
+                                <th style="text-align:right">Vendió</th>
+                                <th style="text-align:right">Ganancia</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -40,7 +42,16 @@
                                            min="0"
                                            max="{{ linea.cantidad_entregada }}"
                                            value="{{ linea.cantidad_regresada }}"
+                                           data-entregada="{{ linea.cantidad_entregada }}"
+                                           data-precio="{{ linea.producto.precio_mayoreo }}"
+                                           oninput="calcularGanancia(this)"
                                            required>
+                                </td>
+                                <td style="text-align:right; font-weight:bold;" class="calc-vendida">
+                                    {{ linea.piezas_vendidas }}
+                                </td>
+                                <td style="text-align:right; color:var(--color-success); font-weight:bold;" class="calc-ganancia">
+                                    ${{ linea.subtotal_esperado }}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -49,7 +60,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="id_monto_recibido">Dinero que entregó ($)</label>
+                    <label class="form-label" for="id_monto_recibido" id="total-esperado-label" style="font-size:1.1rem; color:var(--color-primary); font-weight:bold;">Monto a recibir esperado: ${{ pedido.total_esperado }}</label>
+                    <label class="form-label" for="id_monto_recibido" style="margin-top:10px;">Dinero real que entregó ($)</label>
                     <input type="number"
                            id="id_monto_recibido"
                            name="monto_recibido"
@@ -68,4 +80,35 @@
         </div>
     </div>
 </div>
+
+<script>
+function calcularGanancia(inputEl) {
+    const entregada = parseInt(inputEl.getAttribute('data-entregada'), 10) || 0;
+    const precio = parseFloat(inputEl.getAttribute('data-precio')) || 0.0;
+    let regresada = parseInt(inputEl.value, 10);
+    
+    // Validar limites
+    if (isNaN(regresada) || regresada < 0) regresada = 0;
+    if (regresada > entregada) regresada = entregada;
+    
+    // Math
+    const vendida = entregada - regresada;
+    const ganancia = vendida * precio;
+    
+    // DOM elements update
+    const tr = inputEl.closest('tr');
+    tr.querySelector('.calc-vendida').textContent = vendida;
+    tr.querySelector('.calc-ganancia').textContent = '$' + ganancia.toFixed(2);
+    
+    // Update Expected Total
+    let totalEsperado = 0;
+    document.querySelectorAll('.calc-ganancia').forEach(td => {
+        let val = parseFloat(td.textContent.replace('$', ''));
+        if(!isNaN(val)) totalEsperado += val;
+    });
+    
+    let totalEl = document.getElementById('total-esperado-label');
+    if(totalEl) totalEl.textContent = 'Monto a recibir esperado: $' + totalEsperado.toFixed(2);
+}
+</script>
 {% endblock %}

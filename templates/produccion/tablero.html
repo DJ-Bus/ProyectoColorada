@@ -23,6 +23,7 @@
                     <th>Producto</th>
                     <th style="text-align:right">Apertura</th>
                     <th style="text-align:right; color:var(--color-success)">+ Producción</th>
+                    <th style="text-align:right; color:var(--color-danger)">- Mayoreo</th>
                     <th style="text-align:right; color:var(--color-success)">+ Regresado</th>
                     <th style="text-align:right; color:var(--color-danger)">- Pan Frío</th>
                     <th style="text-align:right">Cierre</th>
@@ -36,6 +37,9 @@
                     <td style="text-align:right">{{ row.apertura }}</td>
                     <td style="text-align:right; color:var(--color-success)">
                         {% if row.producido > 0 %}+{{ row.producido }}{% else %}0{% endif %}
+                    </td>
+                    <td style="text-align:right; color:var(--color-danger)">
+                        {% if row.entregado > 0 %}-{{ row.entregado }}{% else %}0{% endif %}
                     </td>
                     <td style="text-align:right; color:var(--color-success)">
                         {% if row.regresado > 0 %}+{{ row.regresado }}{% else %}0{% endif %}
@@ -64,8 +68,8 @@
     </div>
     
     <div class="card-footer" style="padding: 16px 20px; font-size: 0.85rem; color: var(--color-text-secondary);">
-        <strong>Fórmula:</strong> (Apertura + Producción + Regresado) - (Pan Frío + Cierre) = <strong>Pan vendido en sucursal</strong>.<br>
-        Esta cantidad mostrada en la última columna debe coincidir con el dinero cobrado en mostrador al final del día.
+        <strong>Fórmula:</strong> (Apertura + Producción) - (Mayoreo + Pan Frío) + (Regresado) - (Cierre) = <strong>Pan vendido en sucursal</strong>.<br>
+        Esta cantidad mostrada en la última columna debe coincidir con las piezas que fueron cobradas en caja al final del día.
     </div>
 </div>
 {% endblock %}

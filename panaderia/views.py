@@ -224,6 +224,10 @@ def tablero_inventario(request):
     lineas_regreso = LineaPedido.objects.filter(pedido__fecha=hoy).values('producto_id').annotate(total=Sum('cantidad_regresada'))
     regresos_dict = {l['producto_id']: l['total'] for l in lineas_regreso}
     
+    # Obtener entregados a mayoreo (para sacarlo del disponible esperado en mostrador)
+    lineas_entregado = LineaPedido.objects.filter(pedido__fecha=hoy).values('producto_id').annotate(total=Sum('cantidad_entregada'))
+    entregado_dict = {l['producto_id']: l['total'] for l in lineas_entregado}
+    
     # Obtener bolsas de pan frío (pan que se armó en bolsa hoy, asumiendo que cuenta como merma o salida)
     # Por ahora solo lo mostraremos como informativo o sumado a las salidas.
     lineas_bolsas = LineaBolsaPanFrio.objects.filter(bolsa__fecha_registro=hoy).values('producto_id').annotate(total=Sum('cantidad'))
@@ -238,11 +242,12 @@ def tablero_inventario(request):
         
         producido = prod_dict.get(p.id, 0)
         regresado = regresos_dict.get(p.id, 0)
+        entregado = entregado_dict.get(p.id, 0)
         en_bolsas_frio = bolsas_dict.get(p.id, 0)
         
-        # Apertura + Producción + Regresado - En Bolsas = Disponible esperado
+        # Apertura + Producción - Entregado a mayoreo + Regresado de mayoreo - En Bolsas = Disponible esperado
         # Vendido = Disponible esperado - Cierre
-        disponible_esperado = apertura + producido + regresado - en_bolsas_frio
+        disponible_esperado = apertura + producido - entregado + regresado - en_bolsas_frio
         vendido_calculado = disponible_esperado - cierre
         if vendido_calculado < 0:
             vendido_calculado = 0  # Prevenir negativos si el cierre es mayor al esperado
@@ -251,6 +256,7 @@ def tablero_inventario(request):
             "producto": p,
             "apertura": apertura,
             "producido": producido,
+            "entregado": entregado,
             "regresado": regresado,
             "bolsas_frio": en_bolsas_frio,
             "cierre": cierre if inv and inv.conteo_cierre is not None else "?",
