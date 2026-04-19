@@ -17,6 +17,12 @@
                 Registrar Venta
             </a>
         </li>
+        <li>
+            <a href="{% url 'panaderia:registrar_consumo' %}" class="sidebar-link">
+                <span class="sidebar-link-icon">🥐</span>
+                Consumo Interno
+            </a>
+        </li>
 
         {% if user.is_staff %}
         <li>

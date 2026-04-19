@@ -67,6 +67,12 @@ class Producto(ModeloBase):
         validators=[MinValueValidator(Decimal("0.01"))],
         help_text="Precio al que se le da a los puestos",
     )
+    costo_produccion = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+        help_text="Costo aproximado de hacer el pan",
+        default=Decimal("6.00"),
+    )
     stock_sucursal = models.PositiveIntegerField(default=0)
     es_temporada = models.BooleanField(
         default=False,
@@ -200,8 +206,46 @@ class CompraInsumo(ModeloBase):
 
 
 # ─────────────────────────────────────────────
-# VENTAS
+# VENTAS Y CONSUMO INTERNO
 # ─────────────────────────────────────────────
+
+class ConsumoInterno(ModeloBase):
+    """
+    Pan tomado para consumo propio de la familia o empleados (ej. desayuno).
+    Descuenta automáticamente del stock en mostrador.
+    """
+    fecha = models.DateField(default=timezone.now, db_index=True)
+    producto = models.ForeignKey(
+        Producto, on_delete=models.PROTECT, related_name="consumos_internos"
+    )
+    cantidad = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+    motivo = models.CharField(
+        max_length=200, blank=True, default="",
+        help_text="Ej. Desayuno familiar, almuerzo empleados"
+    )
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="consumos_internos_registrados"
+    )
+
+    class Meta:
+        verbose_name = "Consumo Interno"
+        verbose_name_plural = "Consumos Internos"
+        ordering = ["-fecha", "-created_at"]
+
+    def save(self, *args, **kwargs) -> None:
+        with transaction.atomic():
+            if self.pk is None:
+                # Descontar del stock al registrar
+                producto = Producto.objects.select_for_update().get(pk=self.producto_id)
+                producto.descontar_stock(self.cantidad)
+            super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.cantidad} x {self.producto.nombre} ({self.fecha:%d/%m/%Y}) - {self.motivo}"
+
 
 class VentaSucursal(ModeloBase):
     """

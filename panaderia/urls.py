@@ -5,9 +5,10 @@ from . import views
 app_name = "panaderia"
 
 urlpatterns = [
-    # Ventas
+    # Ventas y Consumo
     path("", views.registrar_venta, name="registrar_venta"),
     path("corte/", views.corte_del_dia, name="corte_del_dia"),
+    path("consumos/", views.registrar_consumo, name="registrar_consumo"),
 
     # Producción e inventario
     path("produccion/", views.registrar_produccion, name="registrar_produccion"),

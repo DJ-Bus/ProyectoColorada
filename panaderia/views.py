@@ -21,6 +21,7 @@ from .models import (
     Producto,
     ProduccionDiaria,
     VentaSucursal,
+    ConsumoInterno,
 )
 from .services import calcular_corte_dia
 
@@ -84,6 +85,45 @@ def corte_del_dia(request):
         "ventas_sucursal": ventas_sucursal,
         "pedidos_mayoreo": pedidos_mayoreo,
         "compras": compras,
+    })
+
+
+# ─────────────────────────────────────────────
+# CONSUMOS INTERNOS
+# ─────────────────────────────────────────────
+
+@login_required
+def registrar_consumo(request):
+    """Pantalla para registrar el consumo interno (desayuno familiar, etc.)."""
+    hoy = timezone.now().date()
+    
+    if request.method == "POST":
+        producto_id = request.POST.get("producto")
+        cantidad = request.POST.get("cantidad")
+        motivo = request.POST.get("motivo", "")
+        
+        if producto_id and cantidad:
+            try:
+                ConsumoInterno.objects.create(
+                    producto_id=int(producto_id),
+                    cantidad=int(cantidad),
+                    motivo=motivo,
+                    registrado_por=request.user
+                )
+                messages.success(request, f"✅ Consumo registrado correctamente. Stock descontado.")
+            except Exception as e:
+                messages.error(request, f"Error al registrar consumo: {e}")
+        else:
+            messages.error(request, "Faltan datos obligatorios.")
+            
+        return redirect("panaderia:registrar_consumo")
+        
+    productos = Producto.objects.filter(activo=True)
+    consumos_hoy = ConsumoInterno.objects.filter(fecha=hoy).select_related("producto", "registrado_por").order_by("-created_at")
+    
+    return render(request, "consumos/registrar.html", {
+        "productos": productos,
+        "consumos_hoy": consumos_hoy,
     })
 
 

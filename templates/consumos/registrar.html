@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Consumo Interno — La Colorada{% endblock %}
+
+{% block content %}
+<div class="content-centered">
+    <div class="page-header" style="text-align:center">
+        <h1 class="page-title" style="justify-content:center">🥐 Consumo Interno</h1>
+        <p class="page-subtitle">Registra el pan tomado para familia o empleados</p>
+    </div>
+
+    <div class="card animate-scale">
+        <div class="card-body">
+            <form method="POST" id="consumo-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label class="form-label" for="id_producto">Producto</label>
+                    <select id="id_producto" name="producto" class="form-control form-control-lg" required>
+                        <option value="">Selecciona un producto...</option>
+                        {% for producto in productos %}
+                            <option value="{{ producto.id }}">{{ producto.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_cantidad">Cantidad (Piezas)</label>
+                    <input type="number"
+                           id="id_cantidad"
+                           name="cantidad"
+                           class="form-control form-control-lg"
+                           inputmode="numeric"
+                           min="1"
+                           placeholder="0"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="id_motivo">Motivo</label>
+                    <input type="text"
+                           id="id_motivo"
+                           name="motivo"
+                           class="form-control"
+                           placeholder="Ej: Desayuno familiar, Empleados...">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block mt-8">
+                    ✅ REGISTRAR CONSUMO
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Últimos consumos del día -->
+    <div class="mt-24">
+        <h2 class="page-title" style="font-size: 1.1rem; justify-content:center">🕒 Consumos de hoy</h2>
+        <div class="mt-16">
+            {% for consumo in consumos_hoy %}
+            <div class="venta-item animate-fade">
+                <div class="venta-item-left">
+                    <span class="venta-item-name">{{ consumo.cantidad }} x {{ consumo.producto.nombre }}</span>
+                    <span class="venta-item-time">{{ consumo.fecha|date:"d/m/Y" }}{% if consumo.motivo %} · {{ consumo.motivo }}{% endif %}</span>
+                </div>
+                {% if consumo.registrado_por %}
+                    <span class="venta-item-amount" style="font-size: 0.9rem; font-weight: normal; color: var(--color-gray-500);">{{ consumo.registrado_por.username }}</span>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🥐</div>
+                <div class="empty-state-text">No hay consumos registrados hoy</div>
+                <div class="empty-state-subtext">El pan está completo en vitrina</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

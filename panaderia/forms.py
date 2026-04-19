@@ -1,7 +1,7 @@
 from django import forms
 from .models import (
     VentaSucursal, ProduccionDiaria, CompraInsumo,
-    PedidoMayoreo, PanFrio,
+    PedidoMayoreo, PanFrio, ConsumoInterno,
 )
 
 
@@ -47,8 +47,17 @@ class CerrarPedidoForm(forms.Form):
     cantidad_regresada = forms.IntegerField(min_value=0)
     monto_recibido = forms.DecimalField(max_digits=10, decimal_places=2, min_value=0)
 
-
 class PanFrioForm(forms.ModelForm):
     class Meta:
         model = PanFrio
         fields = ["producto", "cantidad_piezas", "precio_remate"]
+
+class ConsumoInternoForm(forms.ModelForm):
+    class Meta:
+        model = ConsumoInterno
+        fields = ["producto", "cantidad", "motivo"]
+        widgets = {
+            "producto": forms.Select(attrs={"class": "form-control"}),
+            "cantidad": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+            "motivo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej: Desayuno familiar"}),
+        }

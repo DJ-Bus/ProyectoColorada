@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     CompraInsumo, InventarioDiario, Empleado, Insumo,
     LineaPedido, BolsaPanFrio, LineaBolsaPanFrio, PedidoMayoreo, Producto,
-    ProduccionDiaria, VentaSucursal,
+    ProduccionDiaria, VentaSucursal, ConsumoInterno,
 )
 
 
@@ -47,6 +47,13 @@ class CompraInsumoAdmin(admin.ModelAdmin):
 class VentaSucursalAdmin(admin.ModelAdmin):
     list_display = ("fecha", "empleado", "monto", "notas")
     list_filter = ("fecha", "empleado")
+    date_hierarchy = "fecha"
+
+
+@admin.register(ConsumoInterno)
+class ConsumoInternoAdmin(admin.ModelAdmin):
+    list_display = ("fecha", "producto", "cantidad", "motivo", "registrado_por")
+    list_filter = ("fecha", "producto")
     date_hierarchy = "fecha"
 
 
